@@ -1,0 +1,15 @@
+package io.github.yurasulima.api;
+
+public class TelegramApiException extends RuntimeException {
+    private final int errorCode;
+    private final String description;
+
+    public TelegramApiException(int errorCode, String description) {
+        super("[" + errorCode + "] " + description);
+        this.errorCode = errorCode;
+        this.description = description;
+    }
+
+    public int errorCode()    { return errorCode; }
+    public String description() { return description; }
+}

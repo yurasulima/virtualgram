@@ -134,13 +134,28 @@ public class Dispatcher extends Router {
             log.info("Bot @{} is up and waiting for updates", bot.username());
 
             long offset = 0L;
-            while (true) {
-                List<Update> updates = bot.getUpdates(offset, timeoutSeconds);
-                for (Update update : updates) {
-                    offset = Math.max(offset, update.updateId() + 1L);
-                    Thread.ofVirtual()
-                            .name("vg-update-" + UPDATE_THREAD_ID.incrementAndGet())
-                            .start(() -> processUpdate(update, bot));
+            // Створюємо прапорець для контролю життєвого циклу (корисно на майбутнє)
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    List<Update> updates = bot.getUpdates(offset, timeoutSeconds);
+                    for (Update update : updates) {
+                        offset = Math.max(offset, update.updateId() + 1L);
+                        Thread.ofVirtual()
+                                .name("vg-update-" + UPDATE_THREAD_ID.incrementAndGet())
+                                .start(() -> processUpdate(update, bot));
+                    }
+                } catch (Exception e) {
+                    // Логуємо помилку мережі, але НЕ даємо циклу while перерватися
+                    log.error("Network error during long polling: {}. Retrying in 5 seconds...", e.getMessage());
+
+                    // Робимо паузу перед наступним запитом, щоб не спамить Telegram у разі повної відсутності інтернету
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException ie) {
+                        log.info("Polling thread interrupted. Shutting down...");
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
         } finally {
